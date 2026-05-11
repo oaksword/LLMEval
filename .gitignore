@@ -17,6 +17,9 @@ results/*.json
 .DS_Store
 Thumbs.db
 
+# Temp
+tmp/
+
 # IDE
 .vscode/
 .idea/
