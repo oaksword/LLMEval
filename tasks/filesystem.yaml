@@ -1,0 +1,123 @@
+# Filesystem Tasks — Shell and file manipulation competence
+tasks:
+  # ------------------------------------------------------------------
+  - id: "count_hidden_files"
+    category: "filesystem"
+    description: "Count hidden files (not dirs) in current directory"
+    instruction: |
+      You are in a sandbox directory. How many **hidden files** (files whose names start with '.') are in the **top-level** current directory?
+      - Only count files, NOT directories.
+      - Reply with just the integer in final_answer.
+    scorer: "exact_match"
+    expected: "3"
+    max_steps: 6
+    setup:
+      files:
+        - path: ".config_a"
+          content: "secret a"
+        - path: ".config_b"
+          content: "secret b"
+        - path: ".env"
+          content: "DB_PASS=xyz"
+        - path: "visible.txt"
+          content: "hello"
+        - path: "readme.md"
+          content: "# Project"
+        - path: ".hidden_dir/"
+          is_dir: true
+        - path: ".hidden_dir/ignored.txt"
+          content: "ignored"
+        - path: "subdir/"
+          is_dir: true
+        - path: "subdir/.nested_hidden"
+          content: "nested"
+
+  # ------------------------------------------------------------------
+  - id: "largest_file"
+    category: "filesystem"
+    description: "Find the largest file by size in a directory tree"
+    instruction: |
+      Find the **largest file** (by byte size) anywhere in the sandbox directory tree.
+      Return the filename (not full path) as final_answer.
+    scorer: "exact_match"
+    expected: "database.db"
+    max_steps: 8
+    setup:
+      files:
+        - path: "src/main.py"
+          content: "print('hello world')"
+        - path: "src/utils.py"
+          content: "def foo(): pass"
+        - path: "src/lib/helpers.py"
+          content: "import os\nimport sys\nimport json\n# many imports"
+        - path: "docs/readme.md"
+          content: "# Documentation\n\nThis is a test project."
+        - path: "data/small.csv"
+          content: "a,b,c\n1,2,3"
+        - path: "data/database.db"
+          content: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        - path: "logs/error.log"
+          content: "error at line 42\nerror at line 99"
+        - path: "logs/access.log"
+          content: "GET /index.html\nPOST /api/data"
+
+  # ------------------------------------------------------------------
+  - id: "organize_by_extension"
+    category: "filesystem"
+    description: "Group files by extension into subdirectories"
+    instruction: |
+      The sandbox contains files with different extensions scattered in the root directory.
+      Create subdirectories: `images/`, `documents/`, `data/`.
+      Move each file into the appropriate directory based on extension:
+        - .png, .jpg, .gif → images/
+        - .txt, .md, .pdf → documents/
+        - .csv, .json, .xml → data/
+      After organizing, tell me how many files are in the `images/` directory.
+      Return just the integer in final_answer.
+    scorer: "exact_match"
+    expected: "3"
+    max_steps: 12
+    setup:
+      files:
+        - path: "photo1.png"
+          content: "png data"
+        - path: "photo2.jpg"
+          content: "jpg data"
+        - path: "logo.gif"
+          content: "gif data"
+        - path: "report.txt"
+          content: "text report"
+        - path: "notes.md"
+          content: "# Notes"
+        - path: "manual.pdf"
+          content: "PDF content"
+        - path: "users.csv"
+          content: "name,age\nAlice,30"
+        - path: "config.json"
+          content: '{"key":"value"}'
+        - path: "export.xml"
+          content: "<root/>"
+        - path: "misc.yaml"
+          content: "key: value"
+
+  # ------------------------------------------------------------------
+  - id: "extract_specific_line"
+    category: "filesystem"
+    description: "Extract a specific piece of data from a structured file"
+    instruction: |
+      The file `server.conf` contains configuration in KEY=VALUE format.
+      Find the value of the `PORT` setting and return it as final_answer.
+    scorer: "exact_match"
+    expected: "9090"
+    max_steps: 6
+    setup:
+      files:
+        - path: "server.conf"
+          content: |
+            # Server Configuration
+            HOST=0.0.0.0
+            PORT=9090
+            DEBUG=false
+            MAX_CONNECTIONS=100
+            LOG_LEVEL=info
+            DATA_DIR=/var/data

@@ -1,0 +1,133 @@
+# Research Tasks — Cross-reference, synthesis, and data extraction
+tasks:
+  # ------------------------------------------------------------------
+  - id: "cross_reference_salary"
+    category: "research"
+    description: "Cross-reference employee and department data to answer a question"
+    instruction: |
+      The sandbox contains two files:
+        - `employees.csv`: employee records (id, name, department_id, salary)
+        - `departments.csv`: department info (id, name, location)
+
+      **Question**: What is the total salary of all employees in the "Engineering" department?
+      Return the integer value in final_answer.
+    scorer: "exact_match"
+    expected: "405000"
+    max_steps: 10
+    setup:
+      files:
+        - path: "employees.csv"
+          content: |
+            id,name,department_id,salary
+            1,Alice,101,120000
+            2,Bob,102,95000
+            3,Charlie,101,135000
+            4,Diana,103,110000
+            5,Eve,102,88000
+            6,Frank,101,150000
+            7,Grace,103,125000
+            8,Henry,102,92000
+        - path: "departments.csv"
+          content: |
+            id,name,location
+            101,Engineering,Building A
+            102,Marketing,Building B
+            103,Sales,Building C
+
+  # ------------------------------------------------------------------
+  - id: "find_discrepancy"
+    category: "research"
+    description: "Compare two data sources and find a discrepancy"
+    instruction: |
+      You have two files:
+        - `inventory_jan.csv`: January inventory count
+        - `inventory_feb.csv`: February inventory count
+
+      Find the product whose stock count **decreased the most** (largest negative delta from Jan to Feb).
+      Return the product **name** in final_answer.
+    scorer: "exact_match"
+    expected: "Monitor"
+    max_steps: 10
+    setup:
+      files:
+        - path: "inventory_jan.csv"
+          content: |
+            product,quantity
+            Keyboard,150
+            Mouse,200
+            Monitor,80
+            Headset,120
+            Webcam,95
+            Dock,60
+        - path: "inventory_feb.csv"
+          content: |
+            product,quantity
+            Keyboard,145
+            Mouse,210
+            Monitor,45
+            Headset,115
+            Webcam,90
+            Dock,65
+
+  # ------------------------------------------------------------------
+  - id: "summarize_meeting_notes"
+    category: "research"
+    description: "Extract action items from meeting notes"
+    instruction: |
+      The file `meeting_notes.md` contains notes from a team meeting.
+      **Task**: Extract all action items (lines starting with "ACTION:" or "- [ ]").
+      Count how many action items there are and return just the integer in final_answer.
+    scorer: "exact_match"
+    expected: "4"
+    max_steps: 8
+    setup:
+      files:
+        - path: "meeting_notes.md"
+          content: |
+            # Sprint Planning 2026-05-08
+
+            ## Attendees
+            Alice, Bob, Charlie, Diana
+
+            ## Discussion
+            - We need to finalize the API design by Friday.
+            - Bob will investigate the database performance issue.
+            - Diana proposed switching to Redis for caching.
+
+            ## Decisions
+            - API v2 will use GraphQL instead of REST
+            - Deployment target: 2026-05-20
+
+            ## Action Items
+            ACTION: Alice - Draft GraphQL schema by EOD Wednesday
+            ACTION: Bob - Run load tests on current DB setup
+            - [ ] Charlie - Update CI pipeline for new branch strategy
+            - [ ] Diana - Research Redis cluster pricing
+            - General note: team lunch on Friday
+
+  # ------------------------------------------------------------------
+  - id: "extract_from_logs"
+    category: "research"
+    description: "Parse log files to extract structured information"
+    instruction: |
+      The file `app.log` contains application logs with timestamps and severity levels.
+      Count how many **ERROR** level log entries occurred on **2026-05-08**.
+      Return just the integer in final_answer.
+    scorer: "exact_match"
+    expected: "3"
+    max_steps: 8
+    setup:
+      files:
+        - path: "app.log"
+          content: |
+            2026-05-08 10:00:01 INFO  Server started on port 8080
+            2026-05-08 10:00:15 INFO  Database connection established
+            2026-05-08 10:01:02 ERROR Connection timeout to external API
+            2026-05-08 10:02:30 WARN  High memory usage detected (85%)
+            2026-05-08 10:03:45 INFO  Cache warmed successfully
+            2026-05-08 10:05:11 ERROR Failed to process order #12345
+            2026-05-08 10:07:00 INFO  Health check passed
+            2026-05-09 08:00:01 INFO  Server started on port 8080
+            2026-05-09 08:01:30 ERROR Payment gateway unavailable
+            2026-05-08 10:10:00 ERROR Disk space below 10% threshold
+            2026-05-08 10:12:00 INFO  Scheduled backup completed

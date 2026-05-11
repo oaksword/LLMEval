@@ -1,0 +1,166 @@
+# Policy Tasks — Multi-step decisions under documented rules
+tasks:
+  # ------------------------------------------------------------------
+  - id: "refund_decision"
+    category: "policy"
+    description: "Decide whether to approve a refund based on policy rules"
+    instruction: |
+      Use the following files in the sandbox:
+        - `policy.txt`: company refund policy
+        - `request.txt`: customer refund request details
+
+      Decide whether the refund should be APPROVED or DENIED.
+      Return exactly "APPROVE" or "DENY" in final_answer.
+    scorer: "exact_match"
+    expected: "APPROVE"
+    max_steps: 8
+    setup:
+      files:
+        - path: "policy.txt"
+          content: |
+            Refund Policy v2.3
+            ==================
+            1. Refunds are allowed within 30 calendar days of purchase.
+            2. Digital products are non-refundable after download.
+            3. Physical products must be returned in original packaging.
+            4. Sale items (discount > 40%) are final sale — no refunds.
+            5. Defective items are refundable regardless of date.
+        - path: "request.txt"
+          content: |
+            Refund Request #8872
+            =====================
+            Customer: Jane Smith
+            Product: Wireless Headphones (physical)
+            Purchase Date: 2026-04-20
+            Request Date: 2026-05-09
+            Discount Applied: 15%
+            Reason: Product works but uncomfortable to wear
+            Condition: Original packaging available
+
+  # ------------------------------------------------------------------
+  - id: "access_control_check"
+    category: "policy"
+    description: "Determine access level based on role and clearance rules"
+    instruction: |
+      Use the files:
+        - `acl_policy.txt`: access control rules
+        - `user_profile.json`: user's details
+
+      Determine whether the user can access the "financial_reports" resource.
+      Return "ALLOW" or "DENY" in final_answer.
+    scorer: "exact_match"
+    expected: "DENY"
+    max_steps: 8
+    setup:
+      files:
+        - path: "acl_policy.txt"
+          content: |
+            Access Control Policy
+            =====================
+            Resource: financial_reports
+            Required: role=finance_admin OR (role=manager AND clearance_level>=3)
+
+            Resource: employee_directory
+            Required: role=hr OR role=manager
+
+            Resource: source_code
+            Required: role=engineer OR role=manager
+
+            Clearance levels: 1 (basic), 2 (confidential), 3 (secret), 4 (top-secret)
+        - path: "user_profile.json"
+          content: |
+            {
+              "name": "Bob Chen",
+              "role": "manager",
+              "department": "Engineering",
+              "clearance_level": 2,
+              "active": true
+            }
+
+  # ------------------------------------------------------------------
+  - id: "multi_step_workflow"
+    category: "policy"
+    description: "Execute a multi-step business workflow following rules"
+    instruction: |
+      You must process an expense report following company policy.
+      Files:
+        - `expense_policy.txt`: rules for expense approval
+        - `expense_report.csv`: the expenses to evaluate
+
+      Steps:
+       1. Read the policy to understand what needs manager approval.
+       2. Read the expense report.
+       3. Apply the policy to each expense.
+       4. Return the **total approved amount** (sum of all expenses that pass the policy rules).
+
+      Return just the number (e.g., "1450.00") in final_answer.
+    scorer: "exact_match"
+    expected: "2905.00"
+    max_steps: 12
+    setup:
+      files:
+        - path: "expense_policy.txt"
+          content: |
+            Expense Policy
+            ==============
+            - Meals: up to $50 per meal, no approval needed. Above $50 requires manager approval.
+            - Travel: up to $500 per trip, no approval needed. Above $500 requires manager approval.
+            - Office supplies: up to $200, no approval needed.
+            - Software: all software purchases require manager approval.
+            - Rejected items: alcohol, entertainment, personal items.
+
+            Manager approval column in report: "Y" = approved by manager.
+        - path: "expense_report.csv"
+          content: |
+            date,category,amount,description,manager_approved
+            2026-05-01,meals,45.00,Team lunch discussion,N
+            2026-05-02,travel,320.00,Client visit train fare,N
+            2026-05-03,software,1200.00,IDE licenses annual,Y
+            2026-05-04,office supplies,85.00,Printer paper and toner,N
+            2026-05-05,meals,75.00,Client dinner,Y
+            2026-05-06,entertainment,200.00,Movie tickets,N
+            2026-05-07,travel,650.00,Flight to conference,Y
+            2026-05-08,meals,30.00,Working lunch,N
+            2026-05-09,software,500.00,Design tool subscription,Y
+
+  # ------------------------------------------------------------------
+  - id: "shipping_decision"
+    category: "policy"
+    description: "Choose shipping method based on order weight and destination rules"
+    instruction: |
+      Use the files:
+        - `shipping_rules.txt`: rules for shipping methods
+        - `order.json`: customer order details
+
+      Determine the correct shipping method.
+      Return the shipping method name (e.g., "Standard", "Express", "Freight") in final_answer.
+    scorer: "exact_match"
+    expected: "Express"
+    max_steps: 8
+    setup:
+      files:
+        - path: "shipping_rules.txt"
+          content: |
+            Shipping Rules
+            ==============
+            Domestic orders:
+              - Weight < 2kg: Standard ($5)
+              - Weight 2-10kg: Express ($15)
+              - Weight > 10kg: Freight ($40)
+
+            International orders:
+              - Weight < 1kg: Standard ($20)
+              - Weight 1-5kg: Express ($50)
+              - Weight > 5kg: Freight ($120)
+        - path: "order.json"
+          content: |
+            {
+              "order_id": "ORD-9921",
+              "customer": "Alice Johnson",
+              "destination": "domestic",
+              "items": [
+                {"name": "Laptop Stand", "weight_kg": 1.2},
+                {"name": "Mechanical Keyboard", "weight_kg": 1.5},
+                {"name": "Monitor Arm", "weight_kg": 3.0}
+              ]
+            }
