@@ -66,6 +66,7 @@ class ModelClient:
         reasoning_effort: Optional[str] = None,
         use_cache: bool = True,
         pricing_input_per_1m: Optional[float] = None,
+        pricing_cached_input_per_1m: Optional[float] = None,
         pricing_output_per_1m: Optional[float] = None,
         pricing_cache_hit_per_1m: Optional[float] = None,
         pricing_cache_miss_per_1m: Optional[float] = None,
@@ -77,6 +78,7 @@ class ModelClient:
         self.reasoning_effort = reasoning_effort
         self._use_cache = use_cache
         self._pricing_in = pricing_input_per_1m
+        self._pricing_cached_in = pricing_cached_input_per_1m
         self._pricing_out = pricing_output_per_1m
         self._pricing_hit = pricing_cache_hit_per_1m
         self._pricing_miss = pricing_cache_miss_per_1m
@@ -99,8 +101,13 @@ class ModelClient:
             model=self.model_id,
             messages=messages,
             temperature=temperature,
-            max_tokens=max_tokens,
         )
+        # Newer OpenAI models require max_completion_tokens; other providers
+        # (deepseek, openrouter) still use max_tokens.
+        if self.provider.name == "default":
+            kwargs["max_completion_tokens"] = max_tokens
+        else:
+            kwargs["max_tokens"] = max_tokens
 
         if self._json_mode:
             kwargs["response_format"] = {"type": "json_object"}
@@ -116,6 +123,8 @@ class ModelClient:
             }
 
         # Retry loop with exponential backoff for transient failures.
+        # Also handles model-specific parameter conflicts:
+        #   - temperature=0 rejected by reasoning models → retry without it
         # For 429s, prefer provider rate-limit hints (Retry-After /
         # X-RateLimit-Reset) over blind short backoff.  This matters for
         # OpenRouter free models, which may expose a per-minute reset time.
@@ -125,6 +134,14 @@ class ModelClient:
                 resp = self._client.chat.completions.create(**kwargs)
                 break
             except Exception as exc:
+                # Reasoning models (gpt-5-mini, o-series, etc.) reject temperature != 1
+                if ("temperature" in str(exc).lower()
+                        and "does not support" in str(exc).lower()
+                        and "temperature" in kwargs):
+                    del kwargs["temperature"]
+                    logger.info("Retrying without temperature (reasoning model)")
+                    resp = self._client.chat.completions.create(**kwargs)
+                    break
                 if attempt < max_retries - 1 and _is_retryable(exc):
                     sleep_s = _retry_delay_s(exc, attempt)
                     logger.warning(
@@ -154,6 +171,15 @@ class ModelClient:
         prompt_tokens = usage.prompt_tokens if usage else 0
         completion_tokens = usage.completion_tokens if usage else 0
         total_tokens = usage.total_tokens if usage else 0
+
+        # Guard: warn if API returned more completion tokens than requested.
+        # Some providers/proxies may ignore max_tokens; this helps catch regressions.
+        if completion_tokens > max_tokens:
+            logger.warning(
+                "API returned %d completion tokens (cap was %d) — provider may have "
+                "ignored max_tokens. Model: %s, finish_reason: %s",
+                completion_tokens, max_tokens, self.model_id, finish,
+            )
 
         # Cache tokens — both provider-level and OpenRouter response cache
         cache_read_tokens = 0
@@ -235,7 +261,7 @@ class ModelClient:
         Priority:
           1. API-reported cost (OpenRouter: usage.cost in model_dump)
           2. Cache-aware pricing (DeepSeek: hit/miss split)
-          3. Simple manual pricing override (:price=in,out)
+          3. Simple pricing: built-in static pricing or manual :price=in,out
           4. None (unknown — displayed as N/A)
         """
         # 1. API-reported cost (OpenRouter returns usage.cost; $0 on cache HIT)
@@ -254,9 +280,15 @@ class ModelClient:
             output_cost = (completion_tokens / 1_000_000) * self._pricing_out
             return round(input_cost + output_cost, 8)
 
-        # 3. Simple pricing override (no cache split)
+        # 3. Simple pricing (with optional cache split)
         if self._pricing_in is not None and self._pricing_out is not None:
-            c = (prompt_tokens / 1_000_000) * self._pricing_in + \
+            # Split prompt tokens into cached vs fresh
+            cached_read = cache_read_tokens
+            fresh_prompt = max(0, prompt_tokens - cached_read)
+            # Cached input price: explicit override or 1/10 of input price
+            cached_price = self._pricing_cached_in if self._pricing_cached_in is not None else self._pricing_in / 10
+            c = (fresh_prompt / 1_000_000) * self._pricing_in + \
+                (cached_read / 1_000_000) * cached_price + \
                 (completion_tokens / 1_000_000) * self._pricing_out
             return round(c, 8)
 

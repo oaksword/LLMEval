@@ -77,6 +77,38 @@ BUILTIN_PRICING: dict[str, tuple[float, float, float]] = {
     "deepseek/deepseek-chat":     (0.0028, 0.14, 0.28),
 }
 
+# Simple (input, cached_input, output) per-1M-token pricing for providers
+# that don't return cost in the API response (e.g. OpenAI).
+# Keyed by model_id only (no provider prefix).
+# Cached input is typically 1/10 of input; exceptions noted explicitly.
+# Prices sourced from https://developers.openai.com/api/docs/models/{model_id}
+BUILTIN_SIMPLE_PRICING: dict[str, tuple[float, float, float]] = {
+    # GPT-5.5 series
+    "gpt-5.5":       (5.00, 0.50, 30.00),
+    "gpt-5.5-pro":   (30.00, 3.00, 180.00),
+    # GPT-5.4 series
+    "gpt-5.4":       (2.50, 0.25, 15.00),
+    "gpt-5.4-pro":   (30.00, 3.00, 180.00),
+    "gpt-5.4-mini":  (0.75, 0.075, 4.50),
+    "gpt-5.4-nano":  (0.20, 0.02, 1.25),
+    # GPT-5 series
+    "gpt-5":         (1.25, 0.125, 10.00),
+    "gpt-5-mini":    (0.25, 0.025, 2.00),
+    "gpt-5-nano":    (0.05, 0.005, 0.40),
+    # GPT-4.1 series
+    "gpt-4.1":       (2.00, 0.20, 8.00),
+    "gpt-4.1-mini":  (0.40, 0.04, 1.60),
+    "gpt-4.1-nano":  (0.10, 0.01, 0.40),
+    # GPT-4o series
+    "gpt-4o":        (2.50, 0.25, 10.00),
+    "gpt-4o-mini":   (0.15, 0.015, 0.60),
+    # o-series reasoning
+    "o4-mini":       (1.10, 0.11, 4.40),
+    "o3":            (2.00, 0.20, 8.00),
+    "o1":            (15.00, 1.50, 60.00),
+    "o1-mini":       (1.10, 0.11, 4.40),
+}
+
 # Default reasoning_effort per provider (None = no default / don't send)
 DEFAULT_REASONING: dict[str, str] = {
     "deepseek": "high",
@@ -99,6 +131,7 @@ class ModelSpec:
     # Manual pricing override (optional).  When set, simple input/output pricing is used.
     # When not set, built-in cache-aware pricing may apply for known providers.
     pricing_input_per_1m: Optional[float] = None
+    pricing_cached_input_per_1m: Optional[float] = None
     pricing_output_per_1m: Optional[float] = None
     pricing_cache_hit_per_1m: Optional[float] = None
     pricing_cache_miss_per_1m: Optional[float] = None
@@ -282,6 +315,14 @@ def load_config(argv: Optional[list[str]] = None) -> Config:
                 spec.pricing_cache_hit_per_1m = builtin[0]
                 spec.pricing_cache_miss_per_1m = builtin[1]
                 spec.pricing_output_per_1m = builtin[2]
+
+        # Apply built-in simple pricing for default-provider OpenAI models
+        if spec.pricing_input_per_1m is None and spec.pricing_output_per_1m is None:
+            simple = BUILTIN_SIMPLE_PRICING.get(spec.model_id)
+            if simple is not None:
+                spec.pricing_input_per_1m = simple[0]
+                spec.pricing_cached_input_per_1m = simple[1]
+                spec.pricing_output_per_1m = simple[2]
 
     # --- Resolve providers ---
     providers: dict[str, Provider] = {}

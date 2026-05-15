@@ -136,6 +136,7 @@ def save_results(results: list[TaskResult], config: Config, total_latency_s: flo
                     "provider": m.provider_name,
                     "reasoning_effort": m.reasoning_effort,
                     "pricing_input": m.pricing_input_per_1m,
+                    "pricing_cached_input": m.pricing_cached_input_per_1m,
                     "pricing_output": m.pricing_output_per_1m,
                     "base_url": config.get_provider(m).base_url,
                 }

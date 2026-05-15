@@ -79,6 +79,7 @@ def main(argv: list[str] | None = None) -> None:
             reasoning_effort=model_spec.reasoning_effort,
             use_cache=config.use_cache,
             pricing_input_per_1m=model_spec.pricing_input_per_1m,
+            pricing_cached_input_per_1m=model_spec.pricing_cached_input_per_1m,
             pricing_output_per_1m=model_spec.pricing_output_per_1m,
             pricing_cache_hit_per_1m=model_spec.pricing_cache_hit_per_1m,
             pricing_cache_miss_per_1m=model_spec.pricing_cache_miss_per_1m,
