@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -44,12 +45,14 @@ class StepRecord:
 class TaskResult:
     """Complete result for one task run."""
     task_id: str
+    category: str
     model_id: str
     passed: bool
     final_answer: str
     expected: str
     scorer_detail: str
     total_steps: int
+    tool_calls: int
     total_latency_s: float
     total_tokens: int
     total_cost_usd: float | None  # None = unknown
@@ -99,6 +102,7 @@ def run_task(
         repeat_index: Which repeat this is (0-based).
     """
     task_id = task["id"]
+    category = str(task.get("category", "uncategorized"))
     instruction = task["instruction"]
     expected = str(task.get("expected", ""))
     scorer_name = task.get("scorer", "exact_match")
@@ -117,12 +121,12 @@ def run_task(
         if files:
             sandbox.setup_files(files)
 
-        # Initial CWD context
-        cwd_info = _describe_cwd(sandbox)
-
         messages: list[dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Sandbox directory contents:\n{cwd_info}\n\nTask:\n{instruction}"},
+            {
+                "role": "user",
+                "content": "You are working in a fresh sandbox directory. Use the available tools to inspect or modify files as needed.\n\nTask:\n" + instruction,
+            },
         ]
 
         for step_idx in range(max_steps):
@@ -142,11 +146,16 @@ def run_task(
                     elapsed_s=step_elapsed,
                 )
                 trajectory.append(rec)
-                # give the model one retry with error feedback
-                messages.append(_assistant_msg(result))
+                # Give a retry without echoing the invalid assistant text back into
+                # the conversation. Some providers may flag malformed/raw output on
+                # replay, and echoing it can also reinforce multi-object JSON errors.
                 messages.append({
                     "role": "user",
-                    "content": "ERROR: Your response was not valid JSON. Please reply with valid JSON only.",
+                    "content": (
+                        "ERROR: Your previous response was not valid JSON and was discarded. "
+                        "Reply with exactly one valid JSON object matching the required schema. "
+                        "Do not include markdown, comments, or multiple JSON objects."
+                    ),
                 })
                 continue
 
@@ -201,12 +210,57 @@ def run_task(
         scorer_fn = SCORERS.get(scorer_name, SCORERS["exact_match"])
         if scorer_name == "state_check":
             expected_state = task.get("expected_state", {})
-            passed, scorer_detail = scorer_fn(answer=final_answer, sandbox=sandbox,
-                                              expected_state=expected_state)
+            passed, scorer_detail = scorer_fn(
+                answer=final_answer,
+                sandbox=sandbox,
+                expected_state=expected_state,
+                expected=expected if expected != "" else None,
+                answer_scorer=task.get("answer_scorer", "exact_match"),
+                expected_absent=task.get("expected_absent", []),
+                exact_snapshot=bool(task.get("exact_snapshot", False)),
+            )
         elif scorer_name == "regex_match":
             passed, scorer_detail = scorer_fn(answer=final_answer, pattern=expected)
+        elif scorer_name == "must_not_contain":
+            passed, scorer_detail = scorer_fn(answer=final_answer, patterns=task.get("forbidden_patterns", expected))
         else:
             passed, scorer_detail = scorer_fn(answer=final_answer, expected=expected)
+
+        # Optional generic gates for agentic/tool-use and safety checks.
+        tool_calls = [s for s in trajectory if s.tool]
+        gate_failures = []
+
+        min_tool_calls = task.get("min_tool_calls")
+        if min_tool_calls is not None and len(tool_calls) < int(min_tool_calls):
+            gate_failures.append(f"min_tool_calls: expected >= {min_tool_calls}, got {len(tool_calls)}")
+
+        required_tools = task.get("required_tools", [])
+        used_tools = {s.tool for s in tool_calls}
+        for required_tool in required_tools:
+            if required_tool not in used_tools:
+                gate_failures.append(f"required_tools: missing {required_tool}")
+
+        required_commands = task.get("required_commands", [])
+        used_commands = []
+        for s in tool_calls:
+            if s.tool == "run":
+                command_text = str(s.tool_args.get("command", "")).strip()
+                if command_text:
+                    used_commands.append(command_text.split(maxsplit=1)[0])
+        for required_command in required_commands:
+            if required_command not in used_commands:
+                gate_failures.append(f"required_commands: missing {required_command}")
+
+        forbidden_patterns = task.get("must_not_contain", [])
+        if isinstance(forbidden_patterns, str):
+            forbidden_patterns = [forbidden_patterns]
+        for pattern in forbidden_patterns:
+            if re.search(pattern, final_answer, re.IGNORECASE | re.DOTALL):
+                gate_failures.append(f"must_not_contain: forbidden pattern matched: {pattern!r}")
+
+        if gate_failures:
+            passed = False
+            scorer_detail = scorer_detail + "; gates: " + "; ".join(gate_failures)
 
     except Exception as exc:
         error = str(exc)
@@ -221,12 +275,14 @@ def run_task(
 
     return TaskResult(
         task_id=task_id,
+        category=category,
         model_id=client.model_id,
         passed=passed,
         final_answer=final_answer,
         expected=expected,
         scorer_detail=scorer_detail,
         total_steps=len(trajectory),
+        tool_calls=sum(1 for s in trajectory if s.tool),
         total_latency_s=total_latency,
         total_tokens=metrics.total_tokens,
         total_cost_usd=round(metrics.cost_usd, 6) if metrics.cost_usd is not None else None,
@@ -250,16 +306,6 @@ def _assistant_msg(result, parsed: dict | None = None) -> dict:
     if result.reasoning_content:
         msg["reasoning_content"] = result.reasoning_content
     return msg
-
-
-def _describe_cwd(sandbox: Sandbox) -> str:
-    """Produce a simple ls-like description of the sandbox root."""
-    entries = []
-    for child in sorted(sandbox.root.iterdir()):
-        etype = "dir" if child.is_dir() else "file"
-        size = child.stat().st_size if child.is_file() else 0
-        entries.append(f"  {child.name}/" if child.is_dir() else f"  {child.name} ({size} bytes)")
-    return "\n".join(entries) if entries else "  (empty)"
 
 
 def _step_to_dict(s: StepRecord) -> dict:

@@ -209,13 +209,8 @@ class ModelClient:
                                   cache_read_tokens, cache_write_tokens)
 
         # --- Parse JSON ---
-        parsed = None
-        raw_json = {}
-        try:
-            parsed = json.loads(content)
-            raw_json = parsed
-        except json.JSONDecodeError:
-            pass
+        parsed = _parse_json_object(content)
+        raw_json = parsed or {}
 
         return ClientResult(
             raw_json=raw_json,
@@ -307,6 +302,32 @@ class ModelClient:
         except Exception:
             pass
         return None
+
+
+def _parse_json_object(content: str) -> dict | None:
+    """Parse a model JSON response.
+
+    Prefer strict JSON. If a model emits multiple JSON objects back-to-back
+    despite JSON mode, salvage the first complete object so the runner can
+    continue instead of burning every step on parse retries.
+    """
+    try:
+        obj = json.loads(content)
+        return obj if isinstance(obj, dict) else None
+    except json.JSONDecodeError:
+        pass
+
+    try:
+        decoder = json.JSONDecoder()
+        obj, end = decoder.raw_decode(content.lstrip())
+        if isinstance(obj, dict):
+            trailing = content.lstrip()[end:].strip()
+            if trailing:
+                logger.debug("Parsed first JSON object and ignored trailing content: %r", trailing[:120])
+            return obj
+    except json.JSONDecodeError:
+        pass
+    return None
 
 
 def _is_retryable(exc: Exception) -> bool:

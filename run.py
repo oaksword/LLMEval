@@ -30,15 +30,17 @@ def load_tasks(task_dir: str, globs: list[str]) -> list[dict]:
 
     all_tasks: list[dict] = []
     for yaml_file in sorted(base.glob("*.yaml")):
-        # filename stem matches a glob?
         stem = yaml_file.stem
-        if globs:
-            if not any(g in stem for g in globs):
-                continue
         with open(yaml_file) as f:
             data = yaml.safe_load(f)
-            if data and "tasks" in data:
-                all_tasks.extend(data["tasks"])
+            if not data or "tasks" not in data:
+                continue
+            for task in data["tasks"]:
+                if globs:
+                    haystacks = [stem, str(task.get("category", "")), str(task.get("id", ""))]
+                    if not any(g in h for g in globs for h in haystacks):
+                        continue
+                all_tasks.append(task)
 
     return all_tasks
 
@@ -106,7 +108,7 @@ def main(argv: list[str] | None = None) -> None:
                 if config.verbose or config.repeat > 1:
                     status = "✓" if result.passed else "✗"
                     cost_str = f"${result.total_cost_usd:.6f}" if result.total_cost_usd is not None else "$?.????"
-                    print(f"{status}  {result.total_steps} steps  {result.total_latency_s:.2f}s  "
+                    print(f"{status}  {result.total_steps} steps/{result.tool_calls} tools  {result.total_latency_s:.2f}s  "
                           f"{result.total_tokens} tok  {cost_str}")
 
     total_latency = round(time.time() - total_started, 1)

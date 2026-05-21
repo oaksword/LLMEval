@@ -10,6 +10,7 @@ tasks:
       - Reply with just the integer in final_answer.
     scorer: "exact_match"
     expected: "3"
+    min_tool_calls: 1
     max_steps: 6
     setup:
       files:
@@ -39,8 +40,9 @@ tasks:
     instruction: |
       Find the **largest file** (by byte size) anywhere in the sandbox directory tree.
       Return the filename (not full path) as final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "database.db"
+    min_tool_calls: 1
     max_steps: 8
     setup:
       files:
@@ -74,8 +76,31 @@ tasks:
         - .csv, .json, .xml → data/
       After organizing, tell me how many files are in the `images/` directory.
       Return just the integer in final_answer.
-    scorer: "exact_match"
+    scorer: "state_check"
     expected: "3"
+    answer_scorer: "strict_match"
+    min_tool_calls: 2
+    expected_state:
+      images/photo1.png: "png data"
+      images/photo2.jpg: "jpg data"
+      images/logo.gif: "gif data"
+      documents/report.txt: "text report"
+      documents/notes.md: "# Notes"
+      documents/manual.pdf: "PDF content"
+      data/users.csv: "name,age\nAlice,30"
+      data/config.json: '{"key":"value"}'
+      data/export.xml: "<root/>"
+      misc.yaml: "key: value"
+    expected_absent:
+      - "photo1.png"
+      - "photo2.jpg"
+      - "logo.gif"
+      - "report.txt"
+      - "notes.md"
+      - "manual.pdf"
+      - "users.csv"
+      - "config.json"
+      - "export.xml"
     max_steps: 12
     setup:
       files:
@@ -107,8 +132,9 @@ tasks:
     instruction: |
       The file `server.conf` contains configuration in KEY=VALUE format.
       Find the value of the `PORT` setting and return it as final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "9090"
+    min_tool_calls: 1
     max_steps: 6
     setup:
       files:

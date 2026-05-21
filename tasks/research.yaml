@@ -13,6 +13,7 @@ tasks:
       Return the integer value in final_answer.
     scorer: "exact_match"
     expected: "405000"
+    min_tool_calls: 1
     max_steps: 10
     setup:
       files:
@@ -45,8 +46,9 @@ tasks:
 
       Find the product whose stock count **decreased the most** (largest negative delta from Jan to Feb).
       Return the product **name** in final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "Monitor"
+    min_tool_calls: 1
     max_steps: 10
     setup:
       files:
@@ -79,6 +81,7 @@ tasks:
       Count how many action items there are and return just the integer in final_answer.
     scorer: "exact_match"
     expected: "4"
+    min_tool_calls: 1
     max_steps: 8
     setup:
       files:
@@ -115,6 +118,7 @@ tasks:
       Return just the integer in final_answer.
     scorer: "exact_match"
     expected: "3"
+    min_tool_calls: 1
     max_steps: 8
     setup:
       files:

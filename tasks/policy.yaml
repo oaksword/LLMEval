@@ -11,8 +11,9 @@ tasks:
 
       Decide whether the refund should be APPROVED or DENIED.
       Return exactly "APPROVE" or "DENY" in final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "APPROVE"
+    min_tool_calls: 2
     max_steps: 8
     setup:
       files:
@@ -48,8 +49,9 @@ tasks:
 
       Determine whether the user can access the "financial_reports" resource.
       Return "ALLOW" or "DENY" in final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "DENY"
+    min_tool_calls: 2
     max_steps: 8
     setup:
       files:
@@ -94,8 +96,9 @@ tasks:
        4. Return the **total approved amount** (sum of all expenses that pass the policy rules).
 
       Return just the number (e.g., "1450.00") in final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "2905.00"
+    min_tool_calls: 2
     max_steps: 12
     setup:
       files:
@@ -134,8 +137,9 @@ tasks:
 
       Determine the correct shipping method.
       Return the shipping method name (e.g., "Standard", "Express", "Freight") in final_answer.
-    scorer: "exact_match"
+    scorer: "strict_match"
     expected: "Express"
+    min_tool_calls: 2
     max_steps: 8
     setup:
       files:

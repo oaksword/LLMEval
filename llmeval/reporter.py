@@ -56,7 +56,7 @@ def print_results(results: list[TaskResult], config: Config) -> None:
             repeat_tag = f" [run {r.repeat_index + 1}]" if config.repeat > 1 else ""
             cost_str = _fmt_cost(r.total_cost_usd)
             print(f"  {status}  {r.model_id:30s}  {r.task_id:35s}  "
-                  f"{r.total_steps:2d} steps  {r.total_latency_s:7.2f}s  "
+                  f"{r.total_steps:2d} steps/{r.tool_calls:2d} tools  {r.total_latency_s:7.2f}s  "
                   f"{r.total_tokens:5d} tok  {cost_str}"
                   f"{repeat_tag}")
             if not r.passed:
@@ -113,6 +113,21 @@ def print_results(results: list[TaskResult], config: Config) -> None:
             print(f"  {'':30s}  {'':5s}  {'':5s}  {'':7s}  {'':9s}  {'':7s}  {'':7s}  "
                   f"({', '.join(extras)})")
 
+    # --- Per-category summary ---
+    by_category: dict[tuple[str, str], list[TaskResult]] = defaultdict(list)
+    for r in results:
+        by_category[(r.model_id, r.category)].append(r)
+
+    if by_category:
+        print(_bold("\n--- Category Summary ---"))
+        print(f"  {'Model':30s}  {'Category':18s}  {'Pass':>5s}  {'Total':>5s}  {'Rate':>7s}")
+        print(f"  {'-'*30}  {'-'*18}  {'-'*5}  {'-'*5}  {'-'*7}")
+        for (model_id, category), res_list in sorted(by_category.items()):
+            passed = sum(1 for r in res_list if r.passed)
+            total = len(res_list)
+            rate = f"{passed/total*100:.1f}%" if total > 0 else "N/A"
+            print(f"  {model_id:30s}  {category:18s}  {passed:5d}  {total:5d}  {rate:>7s}")
+
     print()
 
 
@@ -160,12 +175,14 @@ def save_results(results: list[TaskResult], config: Config, total_latency_s: flo
 def _result_to_dict(r: TaskResult) -> dict:
     return {
         "task_id": r.task_id,
+        "category": r.category,
         "model_id": r.model_id,
         "passed": r.passed,
         "final_answer": r.final_answer,
         "expected": r.expected,
         "scorer_detail": r.scorer_detail,
         "total_steps": r.total_steps,
+        "tool_calls": r.tool_calls,
         "total_latency_s": r.total_latency_s,
         "total_tokens": r.total_tokens,
         "total_cost_usd": r.total_cost_usd,

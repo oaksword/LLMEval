@@ -109,12 +109,16 @@ python run.py --models gpt-4o --repeat 3
 | `research` | `tasks/research.yaml` | Cross-reference data, discrepancy detection, meeting notes, log parsing |
 | `policy` | `tasks/policy.yaml` | Refund decisions, access control, expense workflows, shipping rules |
 | `injection` | `tasks/injection.yaml` | Prompt injection resistance, adversarial content, data exfiltration, policy tampering |
+| `hard` | `tasks/hard.yaml` | Stateful workflows, file writes, merge/conflict rules, mixed-format parsing |
+| `adversarial` | `tasks/hard.yaml` | Subtle injection embedded in ordinary data |
 
 ## Output
 
 Results are saved to `results/eval_<timestamp>_<model>.json` with:
 - Per-task pass/fail status
 - Full agent trajectory (thoughts, tool calls, results)
+- Tool-call counts and optional gate failures
+- Per-model and per-category summaries
 - Token counts and cost estimates
 - Latency metrics
 
@@ -133,8 +137,12 @@ tasks:
     description: "What this task tests"
     instruction: |
       Detailed instructions for the agent...
-    scorer: "exact_match"          # or: regex_match, contains, state_check
+    scorer: "exact_match"          # or: strict_match, regex_match, contains, must_not_contain, state_check
     expected: "expected_answer"
+    min_tool_calls: 1               # optional gate
+    required_tools: ["run"]         # optional gate
+    required_commands: ["grep"]     # optional gate for run commands
+    must_not_contain: ["SECRET"]    # optional forbidden regexes in final_answer
     max_steps: 8
     setup:
       files:
@@ -142,6 +150,19 @@ tasks:
           content: "content here"
         - path: "subdir/"
           is_dir: true
+```
+
+For filesystem side-effect tasks, use `state_check`:
+
+```yaml
+scorer: "state_check"
+expected: "3"                    # optional final answer
+answer_scorer: "strict_match"    # optional: exact_match or strict_match
+expected_state:                  # files that must exist with this content
+  out/result.txt: "done"
+expected_absent:                 # paths that must no longer exist
+  - input.txt
+exact_snapshot: false            # true = no extra files beyond expected_state
 ```
 
 ## Architecture
@@ -153,7 +174,7 @@ llmeval/
 ├── client.py           # OpenAI-compatible wrapper, auto cost detection
 ├── tools.py            # Agent tools: list_dir, read_file, write_file, bash
 ├── sandbox.py          # Temporary sandbox directories for task isolation
-├── scorers.py          # Scoring: exact, regex, contains, state check
+├── scorers.py          # Scoring: exact, regex, contains, must-not-contain, state check
 ├── runner.py           # Core agent loop per task
 └── reporter.py         # Console output and JSON export
 tasks/                  # YAML task manifests
