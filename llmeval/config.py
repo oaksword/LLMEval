@@ -20,6 +20,7 @@ BUILTIN_BASE_URLS: dict[str, str] = {
     "openai":      "https://api.openai.com/v1",
     "deepseek":    "https://api.deepseek.com",
     "openrouter":  "https://openrouter.ai/api/v1",
+    "aihubmix":    "https://aihubmix.com/v1",
 }
 
 

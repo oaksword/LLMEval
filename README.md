@@ -47,6 +47,14 @@ Same pattern for base URLs: `LLMEVAL_<NAME>_BASE_URL`, then built-in defaults.
 | `openai` | `https://api.openai.com/v1` |
 | `deepseek` | `https://api.deepseek.com` |
 | `openrouter` | `https://openrouter.ai/api/v1` |
+| `aihubmix` | `https://aihubmix.com/v1` |
+
+> **AIHubMix note:** AIHubMix is a multi-provider aggregator. Use the **exact**
+> model IDs copied from [its model gallery](https://aihubmix.com/models) — unknown
+> IDs silently fall back to a different model. AIHubMix does **not** return cost in
+> the API response and its models are not in the built-in pricing tables, so cost
+> shows `N/A` unless you supply a manual `:price=in,out` override, e.g.
+> `--models "aihubmix/claude-sonnet-4-6:price=3.00,15.00"`.
 
 ### Specifying Models
 

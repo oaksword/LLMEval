@@ -47,6 +47,7 @@ class TaskResult:
     task_id: str
     category: str
     model_id: str
+    provider_name: str
     passed: bool
     final_answer: str
     expected: str
@@ -277,6 +278,7 @@ def run_task(
         task_id=task_id,
         category=category,
         model_id=client.model_id,
+        provider_name=client.provider.name,
         passed=passed,
         final_answer=final_answer,
         expected=expected,

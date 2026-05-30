@@ -26,6 +26,14 @@ def _fmt_cost(val: float | None) -> str:
     return f"${val:.4f}"
 
 
+def _model_label(r: TaskResult) -> str:
+    """Display label for a result; prefixes provider so the same model run via
+    different providers (e.g. aihubmix/ vs deepseek/) shows as separate rows."""
+    if r.provider_name and r.provider_name != "default":
+        return f"{r.provider_name}/{r.model_id}"
+    return r.model_id
+
+
 def print_header(config: Config, num_tasks: int) -> None:
     """Print the evaluation run header."""
     model_desc = ", ".join(
@@ -55,7 +63,7 @@ def print_results(results: list[TaskResult], config: Config) -> None:
             status = _green("✓ PASS") if r.passed else _red("✗ FAIL")
             repeat_tag = f" [run {r.repeat_index + 1}]" if config.repeat > 1 else ""
             cost_str = _fmt_cost(r.total_cost_usd)
-            print(f"  {status}  {r.model_id:30s}  {r.task_id:35s}  "
+            print(f"  {status}  {_model_label(r):30s}  {r.task_id:35s}  "
                   f"{r.total_steps:2d} steps/{r.tool_calls:2d} tools  {r.total_latency_s:7.2f}s  "
                   f"{r.total_tokens:5d} tok  {cost_str}"
                   f"{repeat_tag}")
@@ -70,7 +78,7 @@ def print_results(results: list[TaskResult], config: Config) -> None:
     # --- Per-model summary ---
     by_model: dict[str, list[TaskResult]] = defaultdict(list)
     for r in results:
-        by_model[r.model_id].append(r)
+        by_model[_model_label(r)].append(r)
 
     print(_bold("\n--- Model Summary ---"))
     print(f"  {'Model':30s}  {'Pass':>5s}  {'Total':>5s}  {'Rate':>7s}  "
@@ -116,7 +124,7 @@ def print_results(results: list[TaskResult], config: Config) -> None:
     # --- Per-category summary ---
     by_category: dict[tuple[str, str], list[TaskResult]] = defaultdict(list)
     for r in results:
-        by_category[(r.model_id, r.category)].append(r)
+        by_category[(_model_label(r), r.category)].append(r)
 
     if by_category:
         print(_bold("\n--- Category Summary ---"))
@@ -177,6 +185,7 @@ def _result_to_dict(r: TaskResult) -> dict:
         "task_id": r.task_id,
         "category": r.category,
         "model_id": r.model_id,
+        "provider_name": r.provider_name,
         "passed": r.passed,
         "final_answer": r.final_answer,
         "expected": r.expected,
