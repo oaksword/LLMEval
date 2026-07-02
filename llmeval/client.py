@@ -134,12 +134,14 @@ class ModelClient:
                 resp = self._client.chat.completions.create(**kwargs)
                 break
             except Exception as exc:
-                # Reasoning models (gpt-5-mini, o-series, etc.) reject temperature != 1
-                if ("temperature" in str(exc).lower()
-                        and "does not support" in str(exc).lower()
-                        and "temperature" in kwargs):
+                # Some models/providers reject the temperature param outright:
+                #   - Reasoning models (gpt-5-mini, o-series, etc.): "does not support temperature"
+                #   - AIHubMix Claude models: "`temperature` is deprecated for this model"
+                exc_msg = str(exc).lower()
+                if ("temperature" in kwargs and "temperature" in exc_msg
+                        and any(kw in exc_msg for kw in ("does not support", "deprecated", "unsupported", "not supported"))):
                     del kwargs["temperature"]
-                    logger.info("Retrying without temperature (reasoning model)")
+                    logger.info("Retrying without temperature (rejected by model/provider)")
                     resp = self._client.chat.completions.create(**kwargs)
                     break
                 if attempt < max_retries - 1 and _is_retryable(exc):
